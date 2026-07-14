@@ -19,3 +19,4 @@ __pycache__/
 
 # Git embedded repos
 dissertation/models/itransformer/iTransformer/
+ecl_weather_covariates_experiment/outputs/.matplotlib/

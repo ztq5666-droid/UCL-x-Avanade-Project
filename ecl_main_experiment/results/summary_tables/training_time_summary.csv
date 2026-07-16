@@ -1,0 +1,6 @@
+model,model_label,total_train_time_sec,complexity_score,time_note
+arima,ARIMA,230.77,1,sum of 20 independent client models
+itransformer,iTransformer,1096.9,5,single shared model trained on 321 series
+lstm,LSTM,4544.099999999999,4,sum of 20 independent client models
+tabpfn,TabPFN-TS,0.0,3,zero-shot; no task-specific training
+xgboost,XGBoost,15.51,2,sum of 20 independent client models

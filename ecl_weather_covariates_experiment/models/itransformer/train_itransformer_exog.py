@@ -12,6 +12,7 @@ weather/calendar covariates.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 from pathlib import Path
@@ -38,6 +39,10 @@ from common.common import (  # noqa: E402
 
 
 RESULTS_CSV = RAW_RESULTS_DIR / "itransformer_exog_results.csv"
+CHECKPOINT_DIR = RAW_RESULTS_DIR.parent / "model_checkpoints"
+CHECKPOINT_PATH = CHECKPOINT_DIR / "itransformer_exog_checkpoint.pt"
+ATTENTION_PATH = CHECKPOINT_DIR / "itransformer_exog_attention.npy"
+COLUMNS_PATH = CHECKPOINT_DIR / "itransformer_exog_columns.json"
 SEQ_LEN = 96
 PRED_LEN = 168
 D_MODEL = 128
@@ -114,6 +119,16 @@ def evaluate(split, device) -> list[dict]:
             out = self.projection(encoded)
             return out.permute(0, 2, 1)  # [B, pred_len, N]
 
+        def get_first_layer_attention(self, x):
+            """Return [N, N] attention weights from layer 0, averaged over batch."""
+            with torch.no_grad():
+                tokens = x.permute(0, 2, 1)
+                emb = self.value_embedding(tokens)
+                _, attn = self.encoder.layers[0].self_attn(
+                    emb, emb, emb, need_weights=True, average_attn_weights=True
+                )
+            return attn.mean(dim=0).cpu().numpy()  # [N, N]
+
     train = matrix(split.train, all_columns)
     val = matrix(split.val, all_columns)
     test = matrix(split.test, all_columns)
@@ -172,12 +187,40 @@ def evaluate(split, device) -> list[dict]:
         model.load_state_dict(best_state)
     train_time = time.time() - t0
 
+    # Save checkpoint and attention weights for explainability figures.
+    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+    torch.save({
+        "model_state_dict": {k: v.cpu() for k, v in model.state_dict().items()},
+        "seq_len": SEQ_LEN,
+        "pred_len": PRED_LEN,
+        "d_model": D_MODEL,
+        "n_heads": N_HEADS,
+        "n_layers": N_LAYERS,
+        "d_ff": D_FF,
+        "dropout": DROPOUT,
+        "n_vars": len(all_columns),
+        "scaler_mean": scaler.mean_.tolist(),
+        "scaler_scale": scaler.scale_.tolist(),
+    }, CHECKPOINT_PATH)
+    with open(COLUMNS_PATH, "w") as fh:
+        json.dump({"all_columns": all_columns, "load_columns": split.load_columns,
+                   "exog_columns": split.exog_columns}, fh)
+
     context = np.vstack([train_scaled, val_scaled])[-SEQ_LEN:]
+    context_tensor = torch.tensor(context[None, :, :], dtype=torch.float32, device=device)
     t1 = time.time()
     model.eval()
     with torch.no_grad():
-        pred_scaled = model(torch.tensor(context[None, :, :], dtype=torch.float32, device=device))
+        pred_scaled = model(context_tensor)
     inference_time = time.time() - t1
+
+    # Extract and save first-layer cross-variable attention for W4 heatmap figure.
+    try:
+        attn = model.get_first_layer_attention(context_tensor)
+        np.save(ATTENTION_PATH, attn)
+        print(f"Saved attention -> {ATTENTION_PATH}")
+    except Exception as exc:
+        print(f"Warning: attention extraction failed ({exc}); skipping.")
 
     pred_full = scaler.inverse_transform(pred_scaled.cpu().numpy()[0])[:, :n_load]
     actual_full = test[:PRED_LEN, :n_load]

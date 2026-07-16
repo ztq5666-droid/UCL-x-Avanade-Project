@@ -1,6 +1,6 @@
 # Exogenous Model Scripts
 
-These scripts mirror the structure of `dissertation/models/` while remaining
+These scripts mirror the structure of `ecl_main_experiment/models/` while remaining
 fully inside the independent `ecl_weather_covariates_experiment/` folder.
 
 The active modelling objective is to compare model families on the same
@@ -13,17 +13,16 @@ Active setting:
 past load + past shared regional weather/calendar covariates -> future load
 ```
 
-No original dissertation model scripts are modified.
+No original `ecl_main_experiment/` model scripts are modified.
 
 ## Shared Design
 
 All scripts use:
 
-- `outputs/electricity_lisbon_weather.csv`
-- `physical_datetime` for chronological ordering and weather/calendar alignment
-- `benchmark_datetime` as preserved metadata only
+- `data/electricity_lisbon_weather.csv`
+- `date` column (physical 2012-2014 period) for chronological ordering
 - 70% / 10% / 20% chronological train/validation/test split
-- 20 clients selected with the same rule as the dissertation baselines:
+- 20 clients selected with the same rule as the main experiment:
   top 10 by train-set mean load plus 10 random remaining clients with seed 42
 - Forecast horizons: 24h, 48h, 168h
 - Metrics: MSE, MAE, RMSE in original electricity-load units
@@ -32,13 +31,13 @@ Shared utilities live in:
 
 - `common/common.py`
 
-The shared loader also checks that:
+The shared loader checks that:
 
-- total columns = 338
+- total columns = 337 (1 date + 321 load + 15 exog)
 - electricity load columns = 321
 - exogenous columns = 15
-- `physical_datetime` is continuous hourly
-- forecast origin is aligned at the test boundary
+- `date` is continuous hourly (2012-2014 physical period)
+- forecast origin is aligned at the val/test boundary
 
 ## Critical Forecast-Origin Rule
 
@@ -50,17 +49,15 @@ Using only the end of the training split as context would forecast the
 validation period, then compare those predictions against test actuals. That
 bug produces valid-looking but time-misaligned RMSE/MAE values.
 
-The shared dry-run check now asserts:
+The shared dry-run check asserts:
 
 ```text
 val_end + 1 hour == test_start
 ```
 
-This is the boundary used by the fixed-origin context in these scripts.
-
 ## Scripts
 
-| Model | Script | Main Difference From Load-Only Dissertation Version |
+| Model | Script | Main Difference From Load-Only Main Experiment Version |
 |---|---|---|
 | ARIMA load-only | `arima/train_arima_load_only.py` | Statistical load-only benchmark using the same split, clients and horizons. |
 | XGBoost past-weather | `xgboost/train_xgboost_exog_past.py` | Uses past weather/calendar lag/rolling features. |
@@ -98,10 +95,6 @@ historical weather and historical calendar covariates.
 as a load-only statistical benchmark because ARIMA does not consume the
 weather/calendar covariates in the fair past-information setting.
 
-Oracle-weather scripts that use future observed test-period weather have been
-moved to `../archive_oracle_weather/`. They are retained for traceability but
-are not part of the active fair comparison.
-
 The Lisbon weather variables are shared regional covariates, not
 client-specific local weather measurements.
 
@@ -112,8 +105,9 @@ The active XGBoost exogenous script writes feature importance under
 
 - `xgboost_exog_past_weather_feature_importance.csv`
 
-Active figures can be regenerated with:
+Result figures can be regenerated with:
 
 ```bash
-python generate_result_figures.py
+python analysis/generate_result_figures.py
+python analysis/generate_weather_figures.py
 ```

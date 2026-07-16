@@ -16,12 +16,13 @@ import pandas as pd
 import requests
 
 
-EXPERIMENT_DIR = Path(__file__).resolve().parent
+EXPERIMENT_DIR = Path(__file__).resolve().parent.parent   # scripts/ → ecl_weather_covariates_experiment/
 PROJECT_ROOT = EXPERIMENT_DIR.parent
-ECL_PATH = PROJECT_ROOT / "dissertation" / "data" / "ECL" / "electricity.csv"
+ECL_PATH = PROJECT_ROOT / "ecl_main_experiment" / "data" / "ECL" / "electricity.csv"
 OUTPUT_DIR = EXPERIMENT_DIR / "outputs"
-WEATHER_OUTPUT_PATH = OUTPUT_DIR / "lisbon_weather_hourly.csv"
-MERGED_OUTPUT_PATH = OUTPUT_DIR / "electricity_lisbon_weather.csv"
+DATA_DIR = EXPERIMENT_DIR / "data"
+WEATHER_OUTPUT_PATH = DATA_DIR / "lisbon_weather_hourly.csv"
+MERGED_OUTPUT_PATH = DATA_DIR / "electricity_lisbon_weather.csv"
 
 OPEN_METEO_ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 LISBON_LATITUDE = 38.7223
@@ -439,7 +440,11 @@ def main() -> None:
         WEATHER_OUTPUT_PATH,
         index=False,
     )
-    merged.to_csv(MERGED_OUTPUT_PATH, index=False)
+    merged_out = (
+        merged.drop(columns=["benchmark_datetime"])
+        .rename(columns={"physical_datetime": "date"})
+    )
+    merged_out.to_csv(MERGED_OUTPUT_PATH, index=False)
 
     if original_signature != _file_signature(ECL_PATH):
         raise RuntimeError(f"Original ECL file changed unexpectedly after writing outputs: {ECL_PATH}")

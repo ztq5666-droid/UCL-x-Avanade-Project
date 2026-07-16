@@ -5,6 +5,11 @@ venv/
 # Data files (too large for GitHub)
 *.csv
 *.ckpt
+*.npy
+
+# Allow result metric CSVs (small outputs, important for reproducibility)
+!ecl_main_experiment/results/**/*.csv
+!ecl_weather_covariates_experiment/outputs/raw_metrics/*.csv
 
 # Python cache
 __pycache__/
@@ -18,5 +23,8 @@ __pycache__/
 .ipynb_checkpoints/
 
 # Git embedded repos
-dissertation/models/itransformer/iTransformer/
+ecl_main_experiment/models/itransformer/iTransformer/
 ecl_weather_covariates_experiment/outputs/.matplotlib/
+
+# Private local notes (not for GitHub)
+private_notes/

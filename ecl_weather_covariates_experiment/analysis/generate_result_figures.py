@@ -12,7 +12,7 @@ from pathlib import Path
 
 import matplotlib
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent   # analysis/ → ecl_weather_covariates_experiment/
 os.environ.setdefault("MPLCONFIGDIR", str(ROOT / "outputs" / ".matplotlib"))
 
 matplotlib.use("Agg")
@@ -39,7 +39,7 @@ MODEL_LABELS = {
     "xgboost_exog_past_weather": "XGBoost past weather",
     "lstm_exog": "LSTM exog",
     "itransformer_style_exog": "iTransformer-style exog",
-    "tabpfn_exog_past_weather": "TabPFN tabular exog",
+    "tabpfn_ts_exog_past_weather": "TabPFN-TS past weather",
 }
 
 

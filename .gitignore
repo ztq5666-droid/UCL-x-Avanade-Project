@@ -33,6 +33,7 @@ private_notes/
 # Early draft scripts (superseded by scripts in analysis/ folders)
 files/
 
-# Dissertation source markdown and final document (submitted separately to UCL)
+# Dissertation and project summary (submitted/shared separately)
 论文2/
 dissertation/
+project_summary/

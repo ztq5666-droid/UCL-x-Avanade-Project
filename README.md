@@ -31,12 +31,12 @@ This repository contains the full experimental code and results for a dissertati
 
 ```
 ecl_main_experiment/          Experiment 1: load history comparison
-├── data/README.md            How to obtain electricity.csv (not tracked — 100 MB)
+├── data/README.md            How to obtain electricity.csv (not tracked — ~100 MB)
 ├── eda/                      8-step exploratory data analysis
 │   ├── build_notebook.py
 │   ├── eda_ecl.ipynb
-│   └── figures/              8 EDA output figures
-├── models/                   Training scripts (one per pipeline)
+│   └── figures/              8 EDA output figures (steps 1–8)
+├── models/                   Training scripts (one file per pipeline)
 │   ├── arima/train_arima.py
 │   ├── lstm/train_lstm.py
 │   ├── itransformer/train_itransformer.py
@@ -48,24 +48,21 @@ ecl_main_experiment/          Experiment 1: load history comparison
 └── results/
     ├── figures_final/        Final dissertation figures (Figs 4.1–4.6)
     ├── raw_metrics/          Per-client RMSE/MAE/NMAE CSVs for all pipelines
-    └── summary_tables/       Aggregated summary tables
+    ├── summary_tables/       Aggregated summary tables
+    └── project_findings_summary.md   Business-facing results summary
 
 ecl_weather_covariates_experiment/   Experiment 2: weather covariates extension
 ├── README.md
 ├── data/README.md            How to regenerate the merged weather dataset
-├── scripts/                  Dataset build script (fetches Open-Meteo, merges ECL)
-├── models/                   Training scripts (exogenous variants)
-├── analysis/                 Evaluation and figure-generation scripts
+├── scripts/                  Dataset build script (Open-Meteo fetch + ECL merge)
+├── models/                   Training scripts (exogenous variants of each pipeline)
+│   └── common/               Shared utilities used across weather-experiment models
+├── analysis/                 Evaluation, bootstrap, and figure-generation scripts
 └── outputs/
     ├── figures_final/        Final dissertation figures (weather experiment)
     ├── raw_metrics/          Result CSVs including bootstrap comparisons
-    └── model_checkpoints/    iTransformer column index (model weights gitignored)
-
-dissertation/
-└── dissertation_final.docx   Final dissertation submitted to UCL
-
-project_summary/
-└── summary.md                Project overview and key findings
+    ├── model_checkpoints/    iTransformer column index (model weights gitignored)
+    └── validation_summary.md Dataset and alignment validation notes
 ```
 
 ---
@@ -86,11 +83,11 @@ See `ecl_weather_covariates_experiment/data/README.md` for instructions on regen
 
 | Horizon | Best RMSE (Exp 1) | Best RMSE (Exp 2) |
 |---|---|---|
-| 24h | TabPFN-TS | iTransformer |
+| 24h | TabPFN-TS | TabPFN-TS |
 | 48h | TabPFN-TS | iTransformer |
 | 168h | LSTM | iTransformer |
 
-The weekly seasonal naïve benchmark remains competitive at all horizons, including outperforming several trained pipelines under normalised error (NMAE). iTransformer's advantage is clearest at shorter horizons when weather covariates are available.
+The weekly seasonal naïve benchmark remains competitive at all horizons, outperforming ARIMA, XGBoost, LSTM and iTransformer at 24h in Experiment 1 and ranking first by normalised error (NMAE) at 168h. Adding weather covariates does not change the composition of the leading group at short horizons but shifts the 168h winner from LSTM to iTransformer.
 
 ---
 

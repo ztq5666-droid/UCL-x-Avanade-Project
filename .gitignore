@@ -33,5 +33,6 @@ private_notes/
 # Early draft scripts (superseded by scripts in analysis/ folders)
 files/
 
-# Dissertation source markdown (final Word doc is in dissertation/)
+# Dissertation source markdown and final document (submitted separately to UCL)
 论文2/
+dissertation/

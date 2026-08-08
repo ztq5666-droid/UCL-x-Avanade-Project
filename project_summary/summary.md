@@ -2,7 +2,7 @@
 
 **Author:** Tianqi (MSc Business Analytics, UCL × Avanade)  
 **Date:** July 2026  
-**Dataset:** UCI ECL (Electricity Load Diagrams 2012–2014)  
+**Dataset:** UCI ECL (Electricity Load Diagrams 2016–2019, 321-client benchmark version)  
 **Scope:** Two sequential experiments; five model families; 20 representative clients; horizons 24h / 48h / 168h
 
 ---
@@ -24,7 +24,7 @@ Energy utilities and grid operators must forecast electricity demand across hund
 
 | Property | Value |
 |---|---|
-| Source | UCI ECL: 321 client series, hourly, 2012-01-01 to 2014-12-31 |
+| Source | UCI ECL: 321 client series, hourly, 2016-07-01 to 2019-07-02 |
 | Rows | 26,304 |
 | Split | Train 70% / Val 10% / Test 20% (chronological, no shuffle) |
 | Clients evaluated | 20 (top-10 by mean load + 10 random, seed 42) |
@@ -55,7 +55,7 @@ Energy utilities and grid operators must forecast electricity demand across hund
 | iTransformer | Inverted-attention Transformer | Yes | One shared model, 321 vars | GPU (Tesla M60) |
 | TabPFN-TS | Zero-shot foundation model | Yes (in-context) | None (inference only) | CPU |
 
-iTransformer config: `SEQ_LEN=96, PRED_LEN=168, D_MODEL=128, N_HEADS=4, N_LAYERS=2, D_FF=256, DROPOUT=0.1`
+iTransformer config: `SEQ_LEN=96, PRED_LEN=168, D_MODEL=512, N_HEADS=8, E_LAYERS=3, D_FF=512, DROPOUT=0.1`
 
 ---
 

@@ -75,37 +75,38 @@ ARIMA cannot accept exogenous covariates in the configuration used, so it serves
 
 ### Weather Extension — RMSE by Model and Horizon
 
+Values from corrected result files (raw_metrics/, 2026-07-25/26). Old (misaligned 2012-axis) files superseded; old XGBoost 168h was 5,109.7 kWh.
+
 | Model | RMSE 24h | RMSE 48h | RMSE 168h | Setting |
 |---|---:|---:|---:|---|
 | ARIMA | 4,352.5 | 4,707.9 | 7,277.5 | Load-only baseline |
-| XGBoost | 1,575.1 | 2,604.9 | 5,109.8 | Past weather + calendar exog |
-| LSTM | 1,964.3 | 2,074.1 | 3,627.3 | Past weather + calendar exog |
-| iTransformer | 1,223.7 | 1,324.8 | 3,057.3 | Past weather + calendar exog |
-| TabPFN-TS | **1,034.2** | **1,199.0** | **3,057.3*** | Past weather + calendar exog |
-
-*iTransformer and TabPFN-TS are effectively tied at 168h under weather extension.
+| XGBoost | 1,473.0 | 2,204.0 | 4,822.6 | Past weather + calendar exog |
+| LSTM | 2,110.2 | 2,094.4 | 3,322.7 | Past weather + calendar exog |
+| iTransformer | **1,132.3** | **1,233.4** | **3,067.3** | Past weather + calendar exog |
+| TabPFN-TS | 1,035.3 | 1,274.0 | 3,329.0 | Past weather + calendar exog |
 
 ### What changed vs the main ECL experiment
 
-Adding weather covariates improved all four exogenous-capable models relative to their ECL-only counterparts:
+Weather covariates reduced RMSE for XGBoost, iTransformer, and TabPFN-TS at all horizons. LSTM's RMSE increased at 24h and 48h under the weather setting — weather features did not help LSTM at short horizons (negative values = improvement; positive = degradation):
 
 | Model | 24h RMSE change | 48h RMSE change | 168h RMSE change |
 |---|---:|---:|---:|
-| XGBoost | −1,560.0 (−50%) | −1,133.3 (−30%) | −1,223.9 (−19%) |
-| LSTM | −251.9 (−13%) | −241.2 (−12%) | −302.9 (−8%) |
-| iTransformer | −158.2 (−11%) | −221.0 (−14%) | −303.9 (−8%) |
-| TabPFN-TS | −118.8 (−10%) | −164.6 (−12%) | −243.2 (−7%) |
+| XGBoost | −1,662.1 (−53%) | −1,534.2 (−41%) | −1,511.1 (−24%) |
+| LSTM | **+397.9 (+23%)** | **+261.5 (+14%)** | −1.7 (0%) |
+| iTransformer | −249.6 (−18%) | −312.4 (−20%) | −293.9 (−9%) |
+| TabPFN-TS | −117.7 (−10%) | −89.5 (−7%) | −268.9 (−7%) |
 
-XGBoost gains the most from weather features, particularly at 24h, because its lag-based feature engineering benefits strongly from structured exogenous inputs. iTransformer also improves consistently, reinforcing its ability to leverage cross-variable structure.
+XGBoost gains the most from weather features at all horizons. iTransformer and TabPFN-TS improve consistently. LSTM deteriorates at short horizons, likely because the sequential architecture struggles to incorporate the additional exogenous channels from its training window alignment.
 
 ### Main conclusion
 
-The model ranking from the ECL experiment holds under the weather extension:
-- **TabPFN-TS** remains best at 24h and 48h, this time using weather features in its context window.
-- **iTransformer** achieves the lowest (or joint-lowest) RMSE at 168h when exogenous features are available.
+Under the weather extension, the ranking shifts at 48h compared to the main ECL experiment:
+- **TabPFN-TS** remains best at 24h (RMSE 1,035.3).
+- **iTransformer** is best at 48h (RMSE 1,233.4, beats TabPFN 1,274.0) and at 168h (RMSE 3,067.3).
 - **ARIMA** (load-only) is comfortably the weakest across all horizons.
+- **LSTM** is the only model that performed worse with weather covariates at 24h and 48h.
 
-This suggests that the relative strengths identified in the main experiment are robust to the addition of external information — model architecture still matters more than data richness alone.
+This suggests that iTransformer benefits most from multi-variate context at medium-to-long horizons, while TabPFN-TS retains its short-horizon advantage even in the weather setting.
 
 ---
 

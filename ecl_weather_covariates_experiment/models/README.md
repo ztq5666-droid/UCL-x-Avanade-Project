@@ -20,7 +20,7 @@ No original `ecl_main_experiment/` model scripts are modified.
 All scripts use:
 
 - `data/electricity_lisbon_weather.csv`
-- `date` column (physical 2012-2014 period) for chronological ordering
+- `date` column (synthetic 2012-2014 physical axis assigned during weather merge; the ECL dataset's original timestamps are 2016–2019) for chronological ordering
 - 70% / 10% / 20% chronological train/validation/test split
 - 20 clients selected with the same rule as the main experiment:
   top 10 by train-set mean load plus 10 random remaining clients with seed 42
@@ -36,7 +36,7 @@ The shared loader checks that:
 - total columns = 337 (1 date + 321 load + 15 exog)
 - electricity load columns = 321
 - exogenous columns = 15
-- `date` is continuous hourly (2012-2014 physical period)
+- `date` is continuous hourly (2012-2014 synthetic physical period)
 - forecast origin is aligned at the val/test boundary
 
 ## Critical Forecast-Origin Rule

@@ -6,6 +6,7 @@ venv/
 *.csv
 *.ckpt
 *.npy
+*.pt
 
 # Allow result metric CSVs (small outputs, important for reproducibility)
 !ecl_main_experiment/results/**/*.csv
@@ -28,3 +29,9 @@ ecl_weather_covariates_experiment/outputs/.matplotlib/
 
 # Private local notes (not for GitHub)
 private_notes/
+
+# Early draft scripts (superseded by scripts in analysis/ folders)
+files/
+
+# Dissertation source markdown (final Word doc is in dissertation/)
+论文2/

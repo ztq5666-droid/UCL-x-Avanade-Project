@@ -216,6 +216,9 @@ def evaluate_client(client_id: str, split, client_idx: int, total_clients: int, 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="Validate data path/splits without training.")
+    parser.add_argument("--single-client", action="store_true", help="Train only the first client (for timing).")
+    parser.add_argument("--start-from", type=int, default=0, metavar="N",
+                        help="Skip first N clients and append results to existing CSV (for resuming after interruption).")
     args = parser.parse_args()
 
     ensure_output_dirs()
@@ -225,13 +228,47 @@ def main() -> None:
         return
 
     device = get_device()
-    selected_clients = select_clients(split.train, split.load_columns)
-    all_records = []
-    for idx, client_id in enumerate(selected_clients, start=1):
-        all_records.extend(evaluate_client(client_id, split, idx, len(selected_clients), device))
+    print(f"Device: {device}")
+    all_clients = select_clients(split.train, split.load_columns)
+    total = len(all_clients)
 
-    pd.DataFrame(all_records).to_csv(RESULTS_CSV, index=False)
+    start_n = args.start_from
+    if start_n < 0 or start_n >= total:
+        raise ValueError(f"--start-from {start_n} is out of range [0, {total - 1}]")
+
+    clients_to_run = all_clients[start_n:]
+    if args.single_client:
+        clients_to_run = clients_to_run[:1]
+
+    # Fresh run: overwrite any existing CSV. Resume: append, no header.
+    if start_n == 0 and not args.single_client:
+        write_mode, write_header = "w", True
+    elif start_n == 0 and args.single_client:
+        write_mode, write_header = "w", True
+    else:
+        write_mode, write_header = "a", False
+
+    t_run_start = time.time()
+    for local_idx, client_id in enumerate(clients_to_run):
+        global_idx = start_n + local_idx + 1
+        records = evaluate_client(client_id, split, global_idx, total, device)
+        if records:
+            df_client = pd.DataFrame(records)
+            df_client.to_csv(RESULTS_CSV, mode=write_mode, header=write_header, index=False)
+            write_mode, write_header = "a", False  # all subsequent clients append
+        elapsed = time.time() - t_run_start
+        done = local_idx + 1
+        remaining = len(clients_to_run) - done
+        if remaining > 0:
+            eta_s = (elapsed / done) * remaining
+            print(f"  [{done}/{len(clients_to_run)} done | elapsed {elapsed/60:.1f}m | ETA ~{eta_s/3600:.1f}h]")
+
     print(f"Saved results -> {RESULTS_CSV}")
+    if args.single_client:
+        elapsed = time.time() - t_run_start
+        print(f"\n--- TIMING ---")
+        print(f"One client wall-clock: {elapsed/60:.2f} min")
+        print(f"Full 20-client estimate: ~{elapsed * 20 / 3600:.1f} hours")
 
 
 if __name__ == "__main__":

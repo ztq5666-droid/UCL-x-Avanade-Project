@@ -72,12 +72,14 @@ What it does:
 
 1. Load the original ECL dataset from
    `../ecl_main_experiment/data/ECL/electricity.csv`.
-2. Align the 26,304-row sequence to the standard 2012-01-01 to 2014-12-31
-   hourly physical period.
-3. Download real hourly Lisbon weather from Open-Meteo for that physical period.
+2. Assign a synthetic physical datetime axis (2012-01-01 to 2014-12-31) to the
+   26,304 ECL rows for weather alignment purposes. (The ECL dataset's original
+   timestamps are 2016-07-01 to 2019-07-02; the 2012-2014 axis is an internal
+   mapping used only within the build script.)
+3. Download real hourly Lisbon weather from Open-Meteo for that synthetic period.
 4. Compute derived weather features and calendar encodings.
 5. Merge everything into a single output file with one `date` column
-   (physical 2012-2014 period).
+   (containing the synthetic 2012-2014 physical axis).
 6. Write outputs to `data/`:
    - `data/lisbon_weather_hourly.csv` — weather-only intermediate file
    - `data/electricity_lisbon_weather.csv` — final merged dataset (337 cols)

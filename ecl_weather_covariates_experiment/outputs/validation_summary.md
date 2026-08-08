@@ -10,9 +10,11 @@ the weather data generation or merge process.
 
 ## Output Dataset
 
-The build script (`scripts/build_ecl_lisbon_weather_features.py`) internally
-aligns Lisbon weather to the standard 2012-2014 ECL physical period, then
-writes a single merged file with one datetime column.
+The build script (`scripts/build_ecl_lisbon_weather_features.py`) parses the
+real ECL timestamps from the source file, detects their date range
+(2016-07-01 to 2019-07-02), and fetches matching Lisbon weather from
+Open-Meteo for the same period. All merging is done on the actual ECL
+timestamps.
 
 Final output file: `data/electricity_lisbon_weather.csv`
 
@@ -20,7 +22,7 @@ Final output file: `data/electricity_lisbon_weather.csv`
 |---|---|
 | Rows | 26,304 |
 | Columns | 337 (1 date + 321 load + 15 exog) |
-| Date column | `date` (physical 2012-01-01 to 2014-12-31, hourly) |
+| Date column | `benchmark_datetime` (ECL actual timestamps, 2016-07-01 to 2019-07-02, hourly) |
 | Duplicate dates | 0 |
 | Hourly continuity | Yes |
 | Missing values in exog covariates | 0 |
@@ -35,7 +37,7 @@ Weather source:
 - Latitude: 38.7223
 - Longitude: -9.1393
 - Timezone: Europe/Lisbon
-- Period: 2012-01-01 00:00:00 to 2014-12-31 23:00:00
+- Period: 2016-07-01 to 2019-07-02 (aligned to ECL benchmark timestamps)
 - Frequency: hourly
 
 Weather intermediate file: `data/lisbon_weather_hourly.csv`

@@ -574,7 +574,7 @@ gs  = fig.add_gridspec(2, 2, hspace=0.45, wspace=0.35)
 ax1 = fig.add_subplot(gs[0, :])
 mask = np.triu(np.ones_like(corr_matrix, dtype=bool), k=0)
 sns.heatmap(corr_matrix, ax=ax1, cmap='RdYlGn', center=0, vmin=-0.2, vmax=1.0,
-            mask=mask, square=True, linewidths=0.3,
+            mask=mask, linewidths=0.3,
             cbar_kws={'label': 'Pearson Correlation', 'shrink': 0.6},
             xticklabels=[f'C{c}' for c in sample_clients],
             yticklabels=[f'C{c}' for c in sample_clients])

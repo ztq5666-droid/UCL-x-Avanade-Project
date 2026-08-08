@@ -52,20 +52,14 @@ CALENDAR_COLUMNS = [
 ]
 ADDED_WEATHER_COLUMNS = RAW_WEATHER_COLUMNS + DERIVED_WEATHER_COLUMNS
 ADDED_COLUMNS = ADDED_WEATHER_COLUMNS + CALENDAR_COLUMNS
-STANDARD_ECL_START = pd.Timestamp("2012-01-01 00:00:00")
-STANDARD_ECL_END = pd.Timestamp("2014-12-31 23:00:00")
-STANDARD_ECL_ROW_COUNT = 26304
 
 
 def load_ecl_data(path: Path) -> pd.DataFrame:
-    """Load ECL and add a separate standard 2012-2014 physical time axis.
+    """Load ECL and parse the real ECL timestamps as benchmark_datetime.
 
-    Some processed ECL benchmark files include a continuous hourly ``date``
-    column that is not the original 2012-2014 physical benchmark calendar. The
-    original file is never modified. The existing ``date`` column is preserved
-    as ``benchmark_datetime`` in the generated output, while
-    ``physical_datetime`` is used only for weather alignment and calendar
-    covariates.
+    The original ECL file is never modified. The existing ``date`` column
+    (2016-07-01 to 2019-07-02) is preserved as ``benchmark_datetime`` and used
+    directly for weather alignment and calendar covariates.
     """
     if not path.exists():
         raise FileNotFoundError(
@@ -86,67 +80,33 @@ def load_ecl_data(path: Path) -> pd.DataFrame:
             f"missing/invalid rows={missing_count}."
         )
 
-    expected_dates = pd.date_range(
-        STANDARD_ECL_START,
-        STANDARD_ECL_END,
-        freq="h",
-    )
-    if len(expected_dates) != STANDARD_ECL_ROW_COUNT:
-        raise RuntimeError("Internal standard ECL date range configuration is invalid.")
-
     benchmark_datetime = parsed_dates.dt.tz_localize(None)
-    has_standard_physical_row_count = len(df) == STANDARD_ECL_ROW_COUNT
 
-    if has_standard_physical_row_count:
-        if (
-            benchmark_datetime.iloc[0] == STANDARD_ECL_START
-            and benchmark_datetime.iloc[-1] == STANDARD_ECL_END
-        ):
-            print("ECL date column already matches the standard 2012-2014 benchmark range.")
-        else:
-            print(
-                "ECL date column is preserved as benchmark_datetime, but it does not "
-                "match the standard 2012-2014 physical ECL range."
-            )
-            print(
-                "Assigning physical_datetime from the standard hourly range "
-                "in memory only for weather alignment."
-            )
-            print(
-                f"Original benchmark_datetime range in file: "
-                f"{benchmark_datetime.min()} to {benchmark_datetime.max()}"
-            )
-
-        df = df.drop(columns=["date"])
-        df.insert(0, "benchmark_datetime", benchmark_datetime)
-        df.insert(1, "physical_datetime", expected_dates)
-    else:
-        raise ValueError(
-            "ECL row count does not match the standard 2012-2014 benchmark period: "
-            f"row count is {len(df)} rather than {STANDARD_ECL_ROW_COUNT}; "
-            "cannot safely assign physical_datetime."
-        )
+    df = df.drop(columns=["date"])
+    df.insert(0, "benchmark_datetime", benchmark_datetime)
 
     if df["benchmark_datetime"].duplicated().any():
         duplicate_count = int(df["benchmark_datetime"].duplicated().sum())
         raise ValueError(f"ECL contains duplicate benchmark datetimes: {duplicate_count}")
-    if df["physical_datetime"].duplicated().any():
-        duplicate_count = int(df["physical_datetime"].duplicated().sum())
-        raise ValueError(f"ECL contains duplicate physical datetimes: {duplicate_count}")
 
-    return df.sort_values("physical_datetime").reset_index(drop=True)
+    print(
+        f"ECL loaded: {len(df):,} rows, "
+        f"benchmark_datetime range: {benchmark_datetime.min()} to {benchmark_datetime.max()}"
+    )
+
+    return df.sort_values("benchmark_datetime").reset_index(drop=True)
 
 
 def detect_date_range(df: pd.DataFrame) -> tuple[pd.Timestamp, pd.Timestamp, int, int]:
     """Detect start/end timestamps, row count, and number of load columns."""
-    start = df["physical_datetime"].min()
-    end = df["physical_datetime"].max()
+    start = df["benchmark_datetime"].min()
+    end = df["benchmark_datetime"].max()
     row_count = len(df)
     load_column_count = len(
         [
             col
             for col in df.columns
-            if col not in {"benchmark_datetime", "physical_datetime"}
+            if col not in {"benchmark_datetime"}
         ]
     )
     return start, end, row_count, load_column_count
@@ -239,27 +199,27 @@ def fetch_lisbon_weather(start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame
 def normalise_weather_time(weather_df: pd.DataFrame) -> pd.DataFrame:
     """Convert Open-Meteo timestamps to timezone-naive Lisbon local datetimes."""
     df = weather_df.copy()
-    df["physical_datetime"] = pd.to_datetime(df["time"], errors="raise")
+    df["benchmark_datetime"] = pd.to_datetime(df["time"], errors="raise")
 
-    if getattr(df["physical_datetime"].dt, "tz", None) is not None:
-        df["physical_datetime"] = (
-            df["physical_datetime"].dt.tz_convert(LISBON_TIMEZONE).dt.tz_localize(None)
+    if getattr(df["benchmark_datetime"].dt, "tz", None) is not None:
+        df["benchmark_datetime"] = (
+            df["benchmark_datetime"].dt.tz_convert(LISBON_TIMEZONE).dt.tz_localize(None)
         )
     else:
         # Open-Meteo returns local timestamp strings when timezone=Europe/Lisbon.
         # They are already local clock time; keep them timezone-naive for merging.
-        df["physical_datetime"] = df["physical_datetime"].dt.tz_localize(None)
+        df["benchmark_datetime"] = df["benchmark_datetime"].dt.tz_localize(None)
 
     df = df.drop(columns=["time"])
-    df = df[["physical_datetime"] + RAW_WEATHER_COLUMNS]
+    df = df[["benchmark_datetime"] + RAW_WEATHER_COLUMNS]
     df = (
-        df.drop_duplicates(subset=["physical_datetime"])
-        .sort_values("physical_datetime")
+        df.drop_duplicates(subset=["benchmark_datetime"])
+        .sort_values("benchmark_datetime")
         .reset_index(drop=True)
     )
 
-    if df["physical_datetime"].duplicated().any():
-        duplicate_count = int(df["physical_datetime"].duplicated().sum())
+    if df["benchmark_datetime"].duplicated().any():
+        duplicate_count = int(df["benchmark_datetime"].duplicated().sum())
         raise ValueError(f"Weather data contains duplicate timestamps after normalisation: {duplicate_count}")
 
     return df
@@ -274,11 +234,11 @@ def add_derived_weather_features(weather_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_calendar_features(ecl_df: pd.DataFrame) -> pd.DataFrame:
-    """Add standard and cyclical calendar covariates from ECL timestamps."""
+    """Add standard and cyclical calendar covariates from real ECL timestamps."""
     df = ecl_df.copy()
-    df["hour"] = df["physical_datetime"].dt.hour
-    df["day_of_week"] = df["physical_datetime"].dt.dayofweek
-    df["month"] = df["physical_datetime"].dt.month
+    df["hour"] = df["benchmark_datetime"].dt.hour
+    df["day_of_week"] = df["benchmark_datetime"].dt.dayofweek
+    df["month"] = df["benchmark_datetime"].dt.month
     df["is_weekend"] = (df["day_of_week"] >= 5).astype(int)
 
     df["hour_sin"] = np.sin(2 * np.pi * df["hour"] / 24)
@@ -295,7 +255,7 @@ def merge_ecl_weather(ecl_df: pd.DataFrame, weather_df: pd.DataFrame) -> pd.Data
     ecl_with_calendar = add_calendar_features(ecl_df)
     merged = ecl_with_calendar.merge(
         weather_df,
-        on="physical_datetime",
+        on="benchmark_datetime",
         how="left",
         validate="one_to_one",
     )
@@ -319,14 +279,9 @@ def validate_outputs(
     if merged_df["benchmark_datetime"].duplicated().any():
         duplicate_count = int(merged_df["benchmark_datetime"].duplicated().sum())
         raise ValueError(f"Merged dataset contains duplicate benchmark datetimes: {duplicate_count}")
-    if merged_df["physical_datetime"].duplicated().any():
-        duplicate_count = int(merged_df["physical_datetime"].duplicated().sum())
-        raise ValueError(f"Merged dataset contains duplicate physical datetimes: {duplicate_count}")
 
     if not merged_df["benchmark_datetime"].equals(original_df["benchmark_datetime"]):
         raise ValueError("Merged benchmark_datetime order/content does not match the original ECL dates.")
-    if not merged_df["physical_datetime"].equals(original_df["physical_datetime"]):
-        raise ValueError("Merged physical_datetime order/content does not match the assigned physical dates.")
 
     missing_columns = [col for col in added_columns if col not in merged_df.columns]
     if missing_columns:
@@ -348,17 +303,17 @@ def _validate_weather_coverage(
     end: pd.Timestamp,
 ) -> None:
     """Ensure weather timestamps cover every ECL timestamp."""
-    weather_min = weather_df["physical_datetime"].min()
-    weather_max = weather_df["physical_datetime"].max()
+    weather_min = weather_df["benchmark_datetime"].min()
+    weather_max = weather_df["benchmark_datetime"].max()
     if weather_min > start or weather_max < end:
         raise ValueError(
-            "Weather data does not cover the full ECL physical date range: "
-            f"weather={weather_min} to {weather_max}, physical_datetime={start} to {end}"
+            "Weather data does not cover the full ECL benchmark date range: "
+            f"weather={weather_min} to {weather_max}, benchmark_datetime={start} to {end}"
         )
 
     missing_dates = ecl_df.loc[
-        ~ecl_df["physical_datetime"].isin(weather_df["physical_datetime"]),
-        "physical_datetime",
+        ~ecl_df["benchmark_datetime"].isin(weather_df["benchmark_datetime"]),
+        "benchmark_datetime",
     ]
     if not missing_dates.empty:
         sample = missing_dates.head(10).astype(str).tolist()
@@ -382,11 +337,11 @@ def _print_diagnostics(
         "Benchmark datetime range from ECL file: "
         f"{original_df['benchmark_datetime'].min()} to {original_df['benchmark_datetime'].max()}"
     )
-    print(f"Physical datetime range used for weather merge: {start} to {end}")
+    print(f"Benchmark datetime range used for weather merge: {start} to {end}")
     print(f"Number of electricity load columns: {load_column_count}")
     print(
-        "Weather physical_datetime range: "
-        f"{weather_df['physical_datetime'].min()} to {weather_df['physical_datetime'].max()}"
+        "Weather benchmark_datetime range: "
+        f"{weather_df['benchmark_datetime'].min()} to {weather_df['benchmark_datetime'].max()}"
     )
     print(f"Weather shape: {weather_df.shape}")
     print(f"Merged dataset shape: {merged_df.shape}")
@@ -424,8 +379,8 @@ def main() -> None:
     weather = add_derived_weather_features(weather)
 
     weather = weather[
-        (weather["physical_datetime"] >= start)
-        & (weather["physical_datetime"] <= end)
+        (weather["benchmark_datetime"] >= start)
+        & (weather["benchmark_datetime"] <= end)
     ].reset_index(drop=True)
     _validate_weather_coverage(ecl_df, weather, start, end)
 
@@ -436,14 +391,11 @@ def main() -> None:
         raise RuntimeError(f"Original ECL file changed unexpectedly: {ECL_PATH}")
 
     WEATHER_OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    weather[["physical_datetime"] + ADDED_WEATHER_COLUMNS].to_csv(
+    weather[["benchmark_datetime"] + ADDED_WEATHER_COLUMNS].to_csv(
         WEATHER_OUTPUT_PATH,
         index=False,
     )
-    merged_out = (
-        merged.drop(columns=["benchmark_datetime"])
-        .rename(columns={"physical_datetime": "date"})
-    )
+    merged_out = merged.rename(columns={"benchmark_datetime": "date"})
     merged_out.to_csv(MERGED_OUTPUT_PATH, index=False)
 
     if original_signature != _file_signature(ECL_PATH):
